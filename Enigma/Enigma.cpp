@@ -108,6 +108,9 @@ public:
         rotor2(mapping_rotor[second], posi_2, ring_set_2, TNPs[second], false),
         rotor3(mapping_rotor[third], posi_3, ring_set_3, TNPs[third], true),
         numbers1(first), numbers2(second), numbers3(third) {
+        for (int i = 0; i < 26; i++) {
+            plugboard[i] = 'A' + i;
+        }
     }
 
     char convert(char input) {
@@ -116,6 +119,9 @@ public:
 #ifdef MYDEBUG
         cout << rotor1.get_position() << " " << rotor2.get_position() << " " << rotor3.get_position() << endl;
 #endif  
+        // plugboard
+        input = plugboard[input - 'A'];
+
         // converting
         char tmp3 = rotor3.convert(input);
         char tmp2 = rotor2.convert(tmp3);
@@ -129,13 +135,28 @@ public:
         char rev1 = rotor1.reverse_convert(reflected);
         char rev2 = rotor2.reverse_convert(rev1);
         char rev3 = rotor3.reverse_convert(rev2);
-        cout << endl << "Final conversion: " << rev3 << endl;
-        return rev3;
+
+        char output = plugboard[rev3 - 'A'];
+        cout << endl << "Final conversion: " << output << endl;
+        return output;
+    }
+
+    void plugboard_setting() {
+        cout << "Set your plugboard" << endl;
+        int n;
+        cin >> n;
+        char a, b;
+        for (int i = 0; i < n; i++) {
+            cin >> a >> b;
+            plugboard[a - 'A'] = b;
+            plugboard[b - 'A'] = a;
+        }
     }
 };
 
 int main() {
-    Enigma enigma(1, 2, 3, 'A', 'D', 'U', 'A', 'E', 'S');
+    Enigma enigma(2, 3, 1, 'A', 'A', 'A', 'D', 'E', 'S');
+    enigma.plugboard_setting();
     for (char i = 'A'; i <= 'F'; i++) {
         enigma.convert(i);
     }
