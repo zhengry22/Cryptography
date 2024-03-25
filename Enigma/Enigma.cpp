@@ -1,6 +1,6 @@
 #include <iostream>
 #include <string>
-#define MYDEBUG
+// #define MYDEBUG
 using namespace std;
 
 const string test = "BDFHJLCPRTXVZNYEIWGAKMUSQO";
@@ -59,7 +59,9 @@ public:
         char tmp1 = cyc_plus(input);
         char tmp2 = mapping[tmp1 - 'A'];
         char tmp3 = cyc_minus(tmp2);
+#ifdef MYDEBUG
         cout << tmp3;
+#endif
         return tmp3;
     }
 
@@ -67,7 +69,9 @@ public:
         char tmp1 = cyc_plus(input);
         char tmp2 = reverse_mapping[tmp1 - 'A'];
         char tmp3 = cyc_minus(tmp2);
+#ifdef MYDEBUG
         cout << tmp3;
+#endif
         return tmp3;
     }
 };
@@ -93,12 +97,14 @@ private:
         char pos1 = rotor1.get_position();
         char pos2 = rotor2.get_position();
         char pos3 = rotor3.get_position();
-        rotor3.rotate();
+        rotor3.rotate(); // Whatever the situation is, rotor3 must rotate
+        bool carry = false; // Note that their might be a possibility that all three rotors rotate at the same time
         if (pos3 == TNPs[numbers3]) {
             rotor2.rotate();
+            carry = true;
         }
         if (pos2 == TNPs[numbers2]) {
-            rotor2.rotate();
+            if (!carry) {rotor2.rotate();}          
             rotor1.rotate();
         }
     }
@@ -129,8 +135,9 @@ public:
 
         // reflect tmp1
         char reflected = reflector[tmp1 - 'A'];
+#ifdef MYDEBUG
         cout << reflected;
-
+#endif
         // reverse_converting
         char rev1 = rotor1.reverse_convert(reflected);
         char rev2 = rotor2.reverse_convert(rev1);
@@ -142,7 +149,7 @@ public:
     }
 
     void plugboard_setting() {
-        cout << "Set your plugboard" << endl;
+        cout << "Set your plugboard: enter the number you want to shift and then the pairs" << endl;
         int n;
         cin >> n;
         char a, b;
@@ -152,13 +159,29 @@ public:
             plugboard[b - 'A'] = a;
         }
     }
+
+    void receive_input() {
+        cout << "Input the string that you want to encrypt: " << endl;
+        string input;
+        cin >> input;
+        for (int i = 0; i < input.length(); i++) {
+            this->convert(input[i]); 
+        }
+    }
 };
 
 int main() {
-    Enigma enigma(2, 3, 1, 'A', 'A', 'A', 'D', 'E', 'S');
+    int first_rotor, second_rotor, third_rotor;
+    char init_pos1, init_pos2, init_pos3;
+    char ring_set1, ring_set2, ring_set3;
+    cout << "Please enter the sequence of your rotor from the slowest to the fastest: " << endl;
+    cin >> first_rotor >> second_rotor >> third_rotor;
+    cout << "Please enter the initial position of your rotors from the slowest to the fastest: " << endl;
+    cin >> init_pos1 >> init_pos2 >> init_pos3;
+    cout << "Please enter the ring settings of your rotors from the slowest to the fastest: " << endl;
+    cin >> ring_set1 >> ring_set2 >> ring_set3;
+    Enigma enigma(first_rotor, second_rotor, third_rotor, init_pos1, init_pos2, init_pos3, ring_set1, ring_set2, ring_set3);
     enigma.plugboard_setting();
-    for (char i = 'A'; i <= 'F'; i++) {
-        enigma.convert(i);
-    }
+    enigma.receive_input();
     return 0;
 }
