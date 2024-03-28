@@ -1,3 +1,2 @@
 Combinations that satisfies the condition: 
-1 2 3 P W C
 2 3 1 A A A
