@@ -256,32 +256,23 @@ int main() {
                                 check_3_6[i] = 0;
                             }
 
-                            for (char a1 = 'A'; a1 <= 'Z'; a1++) {
-                                bool flag1 = false;
-                                for (char a2 = 'A'; a2 <= 'Z'; a2++) {
-                                    bool flag2 = false;
-                                    for (char a3 = 'A'; a3 <= 'Z'; a3++) {
-                                        // 每一次都要先重置转子
-                                        string pos_reset;
-                                        pos_reset.push_back(init_pos1);
-                                        pos_reset.push_back(init_pos2);
-                                        pos_reset.push_back(init_pos3);
-                                        enigma1.set_rotor_pos(pos_reset);
+                            for (char letter = 'A'; letter <= 'Z'; letter++) {
+                                // 每一次都要先重置转子
+                                string pos_reset;
+                                pos_reset.push_back(init_pos1);
+                                pos_reset.push_back(init_pos2);
+                                pos_reset.push_back(init_pos3);
+                                enigma1.set_rotor_pos(pos_reset);
 
-                                        string input;
-                                        // Form a string with length of 6
-                                        input.push_back(a1);
-                                        input.push_back(a2);
-                                        input.push_back(a3);
-                                        input.append(input);
-
-                                        // 产生的输出未必会是最上面链中的输出，但是圈的长度不变。我们所需要做的是遍历 26^3 中方法然后统计在这种情况下的圈长
-                                        string enc = enigma1.convert_string(input);
-                                        actual_1_4[enc[0] - 'A'] = enc[3];
-                                        actual_2_5[enc[1] - 'A'] = enc[4];
-                                        actual_3_6[enc[2] - 'A'] = enc[5];
-                                    }
+                                string input;
+                                for(int i = 0; i < 6; i++) {
+                                    input.push_back(letter);
                                 }
+
+                                string enc = enigma1.convert_string(input);
+                                actual_1_4[enc[0] - 'A'] = enc[3];
+                                actual_2_5[enc[1] - 'A'] = enc[4];
+                                actual_3_6[enc[2] - 'A'] = enc[5];                                
                             }
 
                             vector<int> vec_1_4, vec_2_5, vec_3_6;
@@ -339,6 +330,7 @@ int main() {
                                 cout << first_rotor << " " << second_rotor << " " << third_rotor << " "
                                 << init_pos1 << " " << init_pos2 << " " << init_pos3 << endl;
                             }
+
 
                         }
                     }
