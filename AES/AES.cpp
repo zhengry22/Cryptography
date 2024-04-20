@@ -18,7 +18,8 @@ public:
 
 	}
 	void encrypt(const unsigned char* plaintext, unsigned char* ciphertext, const unsigned char* key = nullptr) {
-		// We assume that the key is set.
+		// We assume that the key is set. 
+		// We must guarantee that pt and ct are both 16 bytes long.
 
 		// Initialize state
 		for (int i = 0; i < 4; i++) {
@@ -43,6 +44,11 @@ public:
 		addRoundKey(roundKeys[10]);
 
 		// Move state into ciphertext
+		for (int i = 0; i < 4; i++) {
+			for (int j = 0; j < 4; j++) {
+				ciphertext[(i << 2) + j] = state[j][i];
+			}
+		}
 	}
 private:
 	unsigned char state[4][4];
@@ -226,15 +232,42 @@ private:
 	}
 };
 
-class AES_Decrypt
-{
+class AES_Decrypt {
 public:
 	void setkey(unsigned char* init_key) {
 		keyExpansion(init_key);
 	}
 
 	void decrypt(const unsigned char* ciphertext, unsigned char* decrypttext, unsigned char* key = nullptr) {
+		// Initialize state
+		for (int i = 0; i < 4; i++) {
+			for (int j = 0; j < 4; j++) {
+				state[j][i] = ciphertext[(i << 2) + j];
+			}
+		}
 
+		addRoundKey(roundKeys[10]);
+		Decryp_shiftRows();
+		Decryp_subBytes();
+
+
+		// 10 rounds
+		for (int i = 9; i >= 1; i--) {
+			addRoundKey(roundKeys[i]);
+			Decryp_mixColumns();
+			
+			Decryp_shiftRows();
+			Decryp_subBytes();
+		}
+		// 1 extra round
+		addRoundKey(roundKeys[0]);
+
+		// Move state into ciphertext
+		for (int i = 0; i < 4; i++) {
+			for (int j = 0; j < 4; j++) {
+				decrypttext[(i << 2) + j] = state[j][i];
+			}
+		}
 	}
 private:
 	unsigned char state[4][4];
@@ -280,18 +313,106 @@ private:
 		0xa0, 0xe0, 0x3b, 0x4d, 0xae, 0x2a, 0xf5, 0xb0, 0xc8, 0xeb, 0xbb, 0x3c, 0x83, 0x53, 0x99, 0x61, // e
 		0x17, 0x2b, 0x04, 0x7e, 0xba, 0x77, 0xd6, 0x26, 0xe1, 0x69, 0x14, 0x63, 0x55, 0x21, 0x0c, 0x7d  // f
 	};
-
+	const int mixcolmtx[4][4] = { {14, 11, 13, 9}, {9, 14, 11, 13}, {13, 9, 14, 11}, {11, 13, 9, 14} };
 	void keyExpansion(const unsigned char* key) {
+		// Fill in the array roundKeys with the expanded key
+		// The round key for the initial round is key itself
+		for (int i = 0; i < 4; i++) {
+			for (int j = 0; j < 4; j++) {
+				roundKeys[0][j][i] = key[(i << 2) + j];
+			}
+		}
+		// 10 more rounds
+		for (int i = 1; i < 11; i++) {
+			unsigned char newkey[4][4];
+			for (int j = 0; j < 4; j++) {
+				if (j == 0) {
+					// The first column needs to be dealt in a special way
+					unsigned char tmp[4];
+					for (int k = 0; k < 4; k++) {
+						tmp[k] = roundKeys[i - 1][k][3];
+					}
 
+					// process tmp
+					key_process(tmp, i);
+
+					for (int k = 0; k < 4; k++) {
+#ifdef MYDEBUG
+						int value = static_cast<int>(roundKeys[i - 1][k][j]);
+						std::cout << std::hex << std::setw(2) << std::setfill('0') << value << std::endl;
+#endif
+						newkey[k][j] = tmp[k] ^ roundKeys[i - 1][k][j];
+					}
+				}
+				else {
+					for (int k = 0; k < 4; k++) {
+						newkey[k][j] = newkey[k][j - 1] ^ roundKeys[i - 1][k][j];
+					}
+				}
+			}
+			// Copy it to roundKeys[i]
+			for (int m = 0; m < 4; m++) {
+				for (int n = 0; n < 4; n++) {
+					roundKeys[i][m][n] = newkey[m][n];
+				}
+			}
+		}
+	}
+
+	void key_process(unsigned char* key, int round) {
+		// 1. RotWord
+		char tmp = key[0];
+		for (int i = 0; i < 3; i++) {
+			key[i] = key[i + 1];
+		}
+		key[3] = tmp;
+		// 2. Subword
+		for (int i = 0; i < 4; i++) {
+			key[i] = EnCryp_sbox[(int)key[i]];
+		}
+		// 3. Round const Xor
+		key[0] = key[0] ^ rcon[round];
 	}
 
 	void Decryp_shiftRows() {
-
+		// The four rows shift to the left respectively 0, 1, 2, 3 bytes
+		for (int i = 0; i < 4; i++) {
+			char tmp = state[i][0];
+			char tmp1 = state[i][0];
+			char tmp2 = state[i][1];
+			char tmp3 = state[i][3];
+			switch (i) {
+			case 0:
+				break;
+			case 1:
+				for (int j = 2; j >= 0; j--) {
+					state[i][j + 1] = state[i][j];
+				}
+				state[i][0] = tmp3;
+				break;
+			case 2:
+				state[i][0] = state[i][2];
+				state[i][1] = state[i][3];
+				state[i][2] = tmp1;
+				state[i][3] = tmp2;
+				break;
+			case 3:
+				for (int j = 0; j < 3; j++) {
+					state[i][j] = state[i][j + 1];
+				}
+				state[i][3] = tmp;
+				break;
+			}
+		}
 	}
 
 
 	void Decryp_subBytes() {
-
+		for (int i = 0; i < 4; i++) {
+			for (int j = 0; j < 4; j++) {
+				state[i][j] = DeCryp_SBox[(int)state[i][j]];
+			}
+		}
 	}
 
 	//mix column matrix
@@ -310,11 +431,48 @@ private:
 	unsigned char muld(unsigned char val) { return mul8(val) ^ mul4(val) ^ val; }
 	unsigned char mul9(unsigned char val) { return mul8(val) ^ val; }
 
-	void Decryp_mixColumns() {
+	unsigned char mul_selector(int num, unsigned char value) {
+		switch (num) {
+		case 14:
+			return mule(value);
+		case 11:
+			return mulb(value);
+		case 13:
+			return muld(value);
+		case 9:
+			return mul9(value);
+		default:
+			return value;
+		}
+	}
 
+	void Decryp_mixColumns() {
+		unsigned char original[4][4];
+		for (int i = 0; i < 4; i++) {
+			for (int j = 0; j < 4; j++) {
+				original[i][j] = state[i][j];
+			}
+		}
+		for (int i = 0; i < 4; i++) {
+			for (int j = 0; j < 4; j++) {
+				// i-th row and j-th col
+				for (int k = 0; k < 4; k++) {
+					if (k == 0) {
+						state[i][j] = mul_selector(mixcolmtx[i][k], original[k][j]);
+					}
+					else {
+						state[i][j] ^= (mul_selector(mixcolmtx[i][k], original[k][j]));
+					}
+				}
+			}
+		}
 	}
 	void addRoundKey(const unsigned char rndKey[4][4]) {
-
+		for (int i = 0; i < 4; i++) {
+			for (int j = 0; j < 4; j++) {
+				state[i][j] = state[i][j] ^ rndKey[i][j];
+			}
+		}
 	}
 };
 
@@ -334,6 +492,7 @@ private:
  									 0xF6, 0x9F, 0x24, 0x45, 0xDF, 0x4F, 0x9B, 0x17, 0xAD, 0x2B, 0x41, 0x7B, 0xE6, 0x6C, 0x37, 0x10 };
 
 	unsigned char plain_AES[16] = { 0x90, 0x35, 0xF7, 0x8A, 0x96, 0x33, 0xBA, 0x91, 0x4F, 0xED, 0x58, 0x5E, 0xCF, 0x8E, 0xCF, 0x11 };
+	unsigned char test_cipher[16] = { 0x3A, 0xD7, 0x7B, 0xB4, 0x0D, 0x7A, 0x36, 0x60, 0xA8, 0x9E, 0xCA, 0xF3, 0x24, 0x66, 0xEF, 0x97 };
 
  	unsigned char ciphertext[64];
 
@@ -344,8 +503,10 @@ private:
  	AES_Encrypt en;
  	AES_Decrypt de;
 
- 	en.setkey(key);
-	en.encrypt(plaintext, cipher_AES, key);
+ 	/*en.setkey(key);
+	en.encrypt(plaintext, cipher_AES, key);*/
+	de.setkey(key);
+	de.decrypt(test_cipher, decryptedtext, key);
  	/*en.aes_ctr(plaintext3, 64, iv, ciphertext, key);
  	std::cout << "CTR Plain Text:\t ";
  	for (int i = 0; i < 64; ++i) {
