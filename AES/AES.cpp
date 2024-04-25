@@ -1,12 +1,14 @@
 #include <iostream>
 #include <string>
-#include <cstdint>
+#include <vector>
+#include <fstream>
+#include <sstream>
 #include <iomanip>
+#include <ctime>
 //#define MYDEBUG 
 using namespace std;
 
-class AES_Encrypt
-{
+class AES_Encrypt {
 public:
 	void AES_ENcrypt() {	  	}
 	void setkey(unsigned char* init_key) {
@@ -15,8 +17,40 @@ public:
 
 	//Encrypt with ctr mode
 	void aes_ctr(const unsigned char* plaintext, int len, const unsigned char* iv, unsigned char* ciphertext, const unsigned char* key = nullptr) {
+		// Notice that this function is used both for encryption and decryption. While used for decryption, simply swap plaintext and ciphertext.
+
+		// Under such circumstance, the key is already set
+		unsigned char counter[16]; // A 16 byte array used to store the key
+		memcpy(counter, iv, 16);
+
+		// len stands for the length of pt in bytes
+		for (int i = 0; i < len; i += 16) {
+			unsigned char my_key[16];
+			// In the first round, just use the initial key
+			if (i != 0) {
+				// Else, we increase the key by 1
+				for (int j = 15; j >= 0; j--) {
+					if (counter[j] == 255) {
+						counter[j] = 0; // Carry to the previous number 
+					}
+					else {
+						counter[j]++; // Just add 1 and stop
+						break;
+					}
+				}
+			}
+			encrypt(counter, my_key);
+			for (int j = i; j < i + 16; j++) {
+				if (j >= len) {
+					// exceed length
+					break;
+				}
+				ciphertext[j] = my_key[j - i] ^ plaintext[j];
+			}
+		}
 
 	}
+
 	void encrypt(const unsigned char* plaintext, unsigned char* ciphertext, const unsigned char* key = nullptr) {
 		// We assume that the key is set. 
 		// We must guarantee that pt and ct are both 16 bytes long.
@@ -75,7 +109,7 @@ private:
 
 	//The round constant word array
 	const unsigned char rcon[11] = { 0x00, 0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80, 0x1B, 0x36 };
-	const int mixcolmtx[4][4] = {{2, 3, 1, 1}, {1, 2, 3, 1}, {1, 1, 2, 3}, {3, 1, 1, 2}};
+	const int mixcolmtx[4][4] = { {2, 3, 1, 1}, {1, 2, 3, 1}, {1, 1, 2, 3}, {3, 1, 1, 2} };
 	// Transformation in the Cipher that processes the State using a nonlinear byte substitution table(S - box) that operates on each of the
 	// State bytes independently.
 	unsigned char mul2(unsigned char value) {
@@ -89,14 +123,14 @@ private:
 	}
 	unsigned char mul_selector(int num, unsigned char value) {
 		switch (num) {
-			case 1:
-				return value;
-			case 2:
-				return mul2(value);
-			case 3:
-				return mul3(value);
-			default:
-				return value;
+		case 1:
+			return value;
+		case 2:
+			return mul2(value);
+		case 3:
+			return mul3(value);
+		default:
+			return value;
 		}
 	}
 	void subBytes() {
@@ -114,26 +148,26 @@ private:
 			char tmp2 = state[i][1];
 			char tmp3 = state[i][3];
 			switch (i) {
-				case 0:
-					break;
-				case 1:
-					for (int j = 0; j < 3; j++) {
-						state[i][j] = state[i][j + 1];
-					}
-					state[i][3] = tmp;
-					break;
-				case 2:
-					state[i][0] = state[i][2];
-					state[i][1] = state[i][3];
-					state[i][2] = tmp1;
-					state[i][3] = tmp2;
-					break;
-				case 3:
-					for (int j = 2; j >= 0; j--) {
-						state[i][j + 1] = state[i][j];
-					}
-					state[i][0] = tmp3;
-					break;
+			case 0:
+				break;
+			case 1:
+				for (int j = 0; j < 3; j++) {
+					state[i][j] = state[i][j + 1];
+				}
+				state[i][3] = tmp;
+				break;
+			case 2:
+				state[i][0] = state[i][2];
+				state[i][1] = state[i][3];
+				state[i][2] = tmp1;
+				state[i][3] = tmp2;
+				break;
+			case 3:
+				for (int j = 2; j >= 0; j--) {
+					state[i][j + 1] = state[i][j];
+				}
+				state[i][0] = tmp3;
+				break;
 			}
 		}
 	}
@@ -160,7 +194,7 @@ private:
 					}
 					else {
 						state[i][j] ^= (mul_selector(mixcolmtx[i][k], original[k][j]));
-					}				
+					}
 				}
 			}
 		}
@@ -255,7 +289,7 @@ public:
 		for (int i = 9; i >= 1; i--) {
 			addRoundKey(roundKeys[i]);
 			Decryp_mixColumns();
-			
+
 			Decryp_shiftRows();
 			Decryp_subBytes();
 		}
@@ -480,96 +514,109 @@ private:
 
 
 
- int main() {
- 	unsigned char plaintext[16] = { 0x6B,0xC1,0xBE,0xE2,0x2E,0x40,0x9F,0x96,0xE9,0x3D,0x7E,0x11,0x73,0x93,0x17,0x2A };
- 	unsigned char key[16] =		{ 0x2B,0x7E,0x15,0x16,0x28,0xAE,0xD2,0xA6,0xAB,0xF7,0x15,0x88,0x09,0xCF,0x4F,0x3C };
- 	unsigned char plaintext2[16] = { 0xAE,0x2D,0x8A,0x57,0x1E,0x03,0xAC,0x9C,0x9E,0xB7,0x6F,0xAC,0x45,0xAF,0x8E,0x51 };
-	//unsigned char key[16] = { 0x01, 0x23, 0x45, 0x67, 0x89, 0xAB, 0xCD, 0xEF, 0xFE, 0xDC, 0xBA, 0x98, 0x76, 0x54, 0x32, 0x10 };
- 	unsigned char iv[16] = { 0xF0,0xF1,0xF2,0xF3,0xF4,0xF5,0xF6,0xF7,0xF8,0xF9,0xFA,0xFB,0xFC,0xFD,0xFE,0xFF };
- 	unsigned char plaintext3[64] = { 0x6B, 0xC1, 0xBE, 0xE2, 0x2E, 0x40, 0x9F, 0x96, 0xE9, 0x3D, 0x7E, 0x11, 0x73, 0x93, 0x17, 0x2A ,\
- 									 0xAE, 0x2D, 0x8A, 0x57, 0x1E, 0x03, 0xAC, 0x9C, 0x9E, 0xB7, 0x6F, 0xAC, 0x45, 0xAF, 0x8E, 0x51 ,\
- 									 0x30, 0xC8, 0x1C, 0x46, 0xA3, 0x5C, 0xE4, 0x11, 0xE5, 0xFB, 0xC1, 0x19, 0x1A, 0x0A, 0x52, 0xEF ,\
- 									 0xF6, 0x9F, 0x24, 0x45, 0xDF, 0x4F, 0x9B, 0x17, 0xAD, 0x2B, 0x41, 0x7B, 0xE6, 0x6C, 0x37, 0x10 };
+int main(int argc, char* argv[]) {
+	unsigned char key[16] = { 0x2B,0x7E,0x15,0x16,0x28,0xAE,0xD2,0xA6,0xAB,0xF7,0x15,0x88,0x09,0xCF,0x4F,0x3C };
+	//unsigned char key[16] = { 0x01,0x23,0x45,0x67,0x89,0xab,0xcd,0xef,0xfe,0xdc,0xba,0x98,0x76,0x54,0x32,0x10 };
+	unsigned char iv[16] = { 0xF0,0xF1,0xF2,0xF3,0xF4,0xF5,0xF6,0xF7,0xF8,0xF9,0xFA,0xFB,0xFC,0xFD,0xFE,0xFF };
 
-	unsigned char plain_AES[16] = { 0x90, 0x35, 0xF7, 0x8A, 0x96, 0x33, 0xBA, 0x91, 0x4F, 0xED, 0x58, 0x5E, 0xCF, 0x8E, 0xCF, 0x11 };
-	unsigned char test_cipher[16] = { 0x3A, 0xD7, 0x7B, 0xB4, 0x0D, 0x7A, 0x36, 0x60, 0xA8, 0x9E, 0xCA, 0xF3, 0x24, 0x66, 0xEF, 0x97 };
+	unsigned char plaintext[16] = { 0x6B,0xC1,0xBE,0xE2,0x2E,0x40,0x9F,0x96,0xE9,0x3D,0x7E,0x11,0x73,0x93,0x17,0x2A };
 
- 	unsigned char ciphertext[64];
+	unsigned char plaintext2[16] = { 0xAE,0x2D,0x8A,0x57,0x1E,0x03,0xAC,0x9C,0x9E,0xB7,0x6F,0xAC,0x45,0xAF,0x8E,0x51 };
+	unsigned char plaintext3[64] = { 0x6B, 0xC1, 0xBE, 0xE2, 0x2E, 0x40, 0x9F, 0x96, 0xE9, 0x3D, 0x7E, 0x11, 0x73, 0x93, 0x17, 0x2A ,\
+		0xAE, 0x2D, 0x8A, 0x57, 0x1E, 0x03, 0xAC, 0x9C, 0x9E, 0xB7, 0x6F, 0xAC, 0x45, 0xAF, 0x8E, 0x51 ,\
+		0x30, 0xC8, 0x1C, 0x46, 0xA3, 0x5C, 0xE4, 0x11, 0xE5, 0xFB, 0xC1, 0x19, 0x1A, 0x0A, 0x52, 0xEF ,\
+		0xF6, 0x9F, 0x24, 0x45, 0xDF, 0x4F, 0x9B, 0x17, 0xAD, 0x2B, 0x41, 0x7B, 0xE6, 0x6C, 0x37, 0x10 };
 
- 	unsigned char decryptedtext[64];
 
-	unsigned char cipher_AES[16];
+	//string workmode = "ctr";
+	string workmode = "aes-enc-ecb";
+	string inputfile = "input.txt";
+	string outputfile = "output.txt";
 
- 	AES_Encrypt en;
- 	AES_Decrypt de;
 
- 	/*en.setkey(key);
-	en.encrypt(plaintext, cipher_AES, key);*/
+	if (argc != 4) {
+		cout << "invalid parameter : please use aes.exe  [workmode] [inputfile] [outputfile]\n  where workmode=aes-ctr/aes-enc-ecb/aes-dec-ecb" << endl;
+		return 0;
+	}
+	else {
+		workmode = argv[1];
+		inputfile = argv[2];
+		outputfile = argv[3];
+		cout << "workmode: " << workmode << " inputfile: " << inputfile << " outputfile: " << outputfile << endl;
+		cout << "Key is: \t";
+		for (int i = 0; i < 16; ++i) {
+			std::cout << std::hex << static_cast<int>(key[i]) << " ";
+		}
+		cout << endl;
+	}
+
+	AES_Encrypt en;
+	AES_Decrypt de;
+
+	en.setkey(key);
 	de.setkey(key);
-	de.decrypt(test_cipher, decryptedtext, key);
- 	/*en.aes_ctr(plaintext3, 64, iv, ciphertext, key);
- 	std::cout << "CTR Plain Text:\t ";
- 	for (int i = 0; i < 64; ++i) {
- 		std::cout << std::hex << static_cast<int>(plaintext3[i]) << " ";
- 		if (i == 32)
- 			cout << endl;
- 	}
- 	std::cout << std::endl;
- 	std::cout << "CTR cypher Text:\n ";
- 	for (int i = 0; i < 64; ++i) {
- 		std::cout << std::hex << static_cast<int>(ciphertext[i]) << " ";
- 		if (i == 32)
- 			cout << endl;
- 	}
- 	std::cout << std::endl;*/
+	//en.aes_ctr(plaintext3, 64, iv, ciphertext, key);
 
- 	////de.setkey(key);
- 	////de.aes_ctr(ciphertext, 64, iv, decryptedtext, key);
- 	//en.aes_ctr(ciphertext, 64, iv, decryptedtext, key);
- 	//std::cout << "CTR Decrypted text:\n";
- 	//for (int i = 0; i < 64; ++i) {
- 	//	std::cout << std::hex << static_cast<int>(decryptedtext[i]) << " ";
- 	//	if (i == 32)
- 	//		cout << endl;
- 	//}
- 	//std::cout << std::endl;
+	ofstream ofs(outputfile);
+	ifstream ifs(inputfile);
+	if (!ifs.is_open()) {
+		cout << "sorry can not find file!";
+		return 0;
+	}
+	stringstream buff;
+	string one_byte_data;
+	unsigned char tmpval;
+	buff << ifs.rdbuf();
+	ifs.seekg(0, ios::end);
+	int totallen = ifs.tellg();
+	totallen = (totallen + 10) / 3;
+	ifs.close();
+	istringstream hexstrm(buff.str());
+	unsigned char* plain_data;
+	unsigned char* output_data;
+	plain_data = new unsigned char[totallen];
+	output_data = new unsigned char[totallen];
+	int count = 0;
+	while (hexstrm >> one_byte_data) {
 
+		tmpval = ((one_byte_data[1] >= 'a') ? one_byte_data[1] - 'a' + 10 : ((one_byte_data[1] >= 'A') ? one_byte_data[1] - 'A' + 10 : one_byte_data[1] - '0'));
+		tmpval += (((one_byte_data[0] >= 'a') ? one_byte_data[0] - 'a' + 10 : ((one_byte_data[0] >= 'A') ? one_byte_data[0] - 'A' + 10 : one_byte_data[0] - '0'))) << 4;
+		plain_data[count++] = tmpval;
 
- 	//std::cout << "Plain Text:\t ";
- 	//for (int i = 0; i < 16; ++i) {
- 	//	std::cout << std::hex << static_cast<int>(plaintext[i]) << " ";
- 	//}
- 	//std::cout << std::endl;
- 	//en.encrypt(plaintext, ciphertext);
- 	//std::cout << "Ciphertext: \t";
- 	//for (int i = 0; i < 16; ++i) {
- 	//	std::cout << std::hex << static_cast<int>(ciphertext[i]) << " ";
- 	//}
- 	//std::cout << std::endl;
+	}
+	clock_t start = clock();
+	if (workmode == "aes-ctr" || workmode == "AES-CTR")
+		en.aes_ctr(plain_data, count, iv, output_data);
+	else if (workmode == "aes-enc-ecb" || workmode == "AES-ENC-ECB") {
 
- 	//de.decrypt(ciphertext, key, decryptedtext);
- 	//std::cout << "Decrypted text:\t";
- 	//for (int i = 0; i < 16; ++i) {
- 	//	std::cout << std::hex << static_cast<int>(decryptedtext[i])<<" ";
- 	//}
- 	//std::cout << std::endl;
+		for (int i = 0; i < count; i += 16) {
+			en.encrypt(&plain_data[i], &output_data[i]);
+		}
 
+	}
+	else if (workmode == "aes-dec-ecb" || workmode == "AES-DEC-ECB") {
+		for (int i = 0; i < count; i += 16) {
+			de.decrypt(&plain_data[i], &output_data[i]);
 
+		}
+	}
 
+	clock_t end = clock();
+	double elapsed_seconds = (double)(end - start) * 1000.0 / CLOCKS_PER_SEC;
+	cout << "AES-128 CTR Use: " << elapsed_seconds << "ms" << endl;
+	cout << "The Speed is: " << 8 * count / 1024 / 1024 / (elapsed_seconds / 1000) << "Mbps" << endl;
 
- 	//std::cout << "Plain Text:\t ";
- 	//for (int i = 0; i < 16; ++i) {
- 	//	std::cout << std::hex << static_cast<int>(plaintext2[i]) << " ";
- 	//}
- 	//std::cout << std::endl;
- 	//en.encrypt(plaintext2, key, ciphertext);
- 	//std::cout << "Ciphertext: \t";
- 	//for (int i = 0; i < 16; ++i) {
- 	//	std::cout << std::hex << static_cast<int>(ciphertext[i]) << " ";
- 	//}
- 	//std::cout << std::endl;
+	unsigned char out_one_byte[] = "00";
+	for (int i = 0; i < count; i++) {
+		unsigned char a = output_data[i];
+		out_one_byte[0] = (a >> 4) >= 10 ? (a >> 4) + 'a' - 10 : (a >> 4) + '0';
+		out_one_byte[1] = (a & 0x0f) >= 10 ? (a & 0x0f) + 'a' - 10 : (a & 0x0f) + '0';
+		ofs << out_one_byte << " ";
+	}
+	ofs.close();
+	delete[] plain_data;
+	delete[] output_data;
 
- 	return 0;
- }
-
+	return 0;
+}
 
